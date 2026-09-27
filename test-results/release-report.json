@@ -1,0 +1,21 @@
+{
+  "files": 13,
+  "uncompressedBytes": 70151,
+  "zipBytes": 24268,
+  "sha256": "a5020ec155aa12befc5b9b6a1cfb032c8957895f214fdf42a99eb6e1401cf6d6",
+  "entries": [
+    "assets/field.svg",
+    "assets/icon.svg",
+    "css/game.css",
+    "index.html",
+    "js/audio.js",
+    "js/board.js",
+    "js/camera.js",
+    "js/game.js",
+    "js/input.js",
+    "js/main.js",
+    "js/save.js",
+    "js/ui.js",
+    "js/youtube.js"
+  ]
+}
