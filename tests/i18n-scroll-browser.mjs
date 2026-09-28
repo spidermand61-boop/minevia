@@ -36,11 +36,31 @@ for (const [engine,type] of [['chromium',chromium],['webkit',webkit]]) {
     const context=await browser.newContext({locale:'uk-UA',viewport:{width:390,height:844},isMobile:true,hasTouch:true});
     const p=await context.newPage(),errors=[];
     p.on('pageerror',e=>errors.push(e.message));p.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+    await p.addInitScript(() => {
+      window.menuPrevented = [];
+      const original = Event.prototype.preventDefault;
+      Event.prototype.preventDefault = function() {
+        if (/^(touch|pointer)/.test(this.type) && this.target?.closest?.('#home')) menuPrevented.push(this.type);
+        return original.call(this);
+      };
+    });
     await p.route('**/game_api/v1',r=>r.fulfill({body:''}));await p.goto(url);await p.waitForSelector('#home');
-    for(const [width,height] of [[390,844],[393,852],[844,390],[852,393],[360,640],[320,568],[390,600]]) {
+    for(const [width,height] of [[390,844],[393,852],[430,932],[844,390],[852,393],[360,640],[320,568],[390,600]]) {
       await p.setViewportSize({width,height});await p.evaluate(()=>scrollTo(0,0));
       await swipe(p,engine,Math.min(width-25,350),Math.min(height-50,600),100);
-      assert.ok(await p.evaluate(()=>scrollY>0),`${engine} native page scroll ${width}x${height}`);
+      const metrics = await p.evaluate(() => ({y:scrollY,height:innerHeight,scrollHeight:document.documentElement.scrollHeight}));
+      if (metrics.scrollHeight > metrics.height)
+        assert.ok(metrics.y>0,`${engine} page scroll ${width}x${height}`);
+      // A tall screen may fit all menu content. Never manufacture extra content just to scroll.
+      for (const selector of ['body','#app','#home']) {
+        const style = await p.locator(selector).evaluate(el=>({overflow:getComputedStyle(el).overflowY,position:getComputedStyle(el).position,touch:getComputedStyle(el).touchAction}));
+        assert.equal(style.overflow,'visible',`${selector} must not create a nested menu scroller`);
+        assert.notEqual(style.position,'fixed');assert.equal(style.touch,'auto');
+      }
+      if (metrics.y>0) {
+        await swipe(p,engine,Math.min(width-25,350),100,Math.min(height-50,600));
+        assert.ok(await p.evaluate(()=>scrollY)<metrics.y,'downward swipe returns toward top');
+      }
       await p.locator('[data-level=custom]').scrollIntoViewIfNeeded();
       assert.ok(await p.locator('[data-level=custom]').isVisible());
       assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`horizontal overflow ${engine} ${width}`);
@@ -113,7 +133,8 @@ for (const [engine,type] of [['chromium',chromium],['webkit',webkit]]) {
     assert.equal(await p.locator('body').evaluate(el=>el.classList.contains('game-mode')),true);
     await p.click('#settings-done');await p.click('#fit');await p.click('#menu');
     await swipe(p,engine,350,650,120);assert.ok(await p.evaluate(()=>scrollY>0));
+    assert.deepEqual(await p.evaluate(()=>menuPrevented),[],'menu touch/pointer events never preventDefault');
     assert.deepEqual(errors,[]);
-    await context.close();console.log(`PASS ${engine}: 7 locales, live/persisted override, Auto, board/timer/camera, 7 mobile layouts, scrolling (native touch in Chromium, geometry in mobile WebKit), dialogs, no console errors.`);
+    await context.close();console.log(`PASS ${engine}: 7 locales, live/persisted override, Auto, board/timer/camera, 8 mobile layouts, scrolling (native touch in Chromium, geometry in mobile WebKit), dialogs, no console errors.`);
   } finally {await browser.close();}
 }

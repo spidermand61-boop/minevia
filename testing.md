@@ -146,3 +146,17 @@ Verification:
 - Release ZIP regenerated with 16 runtime files. Local nested /minevia/ preview checks relative paths without modifying or deploying the public GitHub Pages site.
 
 Limits: physical iPhone/Android, audible speaker output, Safari hardware silent switch, real browser chrome/bounce and actual YouTube host still require device testing. Playwright WebKit is not a physical iPhone or installed desktop Safari. Tests simulate lifecycle interruptions and exercise real AudioContext.suspend; they do not claim an actual device background/foreground test.
+
+## Menu-only scroll-container audit (2026-09-28)
+
+Scope: only two body overflow declarations in `css/game.css`; no runtime JavaScript, board, camera, gesture, audio or gameplay changes. Updated `tests/i18n-scroll-browser.mjs` and this report. `playable.zip` regenerated (16 runtime files, 37,877 bytes).
+
+Before editing, fetched the public `/minevia/css/game.css` and confirmed its SHA-256 matched local CSS, excluding a different deployed CSS version as the explanation at that time. Both Chromium and mobile WebKit measured the initial Ukrainian 390×844 menu as follows: document clientHeight 844 / scrollHeight 905; body clientHeight 905 / scrollHeight 905; app height 905 with overflow visible; home clientHeight/scrollHeight 799. Both html and body computed to overflow `hidden auto`. Body was static, touch-action auto, and no game-mode lock was present.
+
+Identified CSS defect: `body { overflow-x:hidden; overflow-y:visible }` computes the visible axis to auto, and `body.menu-mode { overflow-x:hidden; overflow-y:auto }` explicitly repeats it. Thus body is an unnecessary nested scroll container with no own scroll range, inside the root document scroller. Changed body/menu overflow to visible; the root retains horizontal clipping and native vertical scrolling. See https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/overflow for computed-axis behavior. Game-mode's fixed body/hidden overflow rules are unchanged and continue to override menu defaults.
+
+Evidence boundary: the reported complete one-finger lock on the user's physical iPhone was NOT reproduced locally. Removing the redundant scroll container corrects an observed structural defect and removes a possible Safari scroll-routing cause; it is not proof that this was the physical device's root cause. No claims of physical Safari verification or public deployment are made.
+
+Tests: Chromium native touch swipes up/down; WebKit mobile DOM scroll geometry; 390×844, 393×852, 430×932, 844×390, 852×393, 360×640, 320×568, 390×600 plus short Game 390×280. Menu body/app/home must all compute overflow-y visible, position not fixed and touch-action auto. Test-only instrumentation confirms no menu touch/pointer preventDefault calls. A screen that already fits all content is allowed to have zero scroll range. Custom controls are reachable, Game remains locked, and Game→Menu restores native scrolling. Existing full browser suite verifies gameplay, camera, gestures, loss and SDK behavior unchanged. No production diagnostic logging added.
+
+Physical iPhone Safari and in-app browser behavior remains to be confirmed by the user, including exact URL/device/OS version. The new patch is local until published; rechecking the existing GitHub Pages URL before publishing will still exercise the preceding CSS.
