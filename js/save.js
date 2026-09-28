@@ -1,7 +1,8 @@
+import { languageOptions } from './i18n.js';
 import { DEFAULT_CUSTOM, validCustom, copyCustom } from './config.js';
 import { isLevel } from './board.js';
 import { Game, bestScore } from './game.js';
-export const defaults = () => ({ version: 1, settings: { sound: true, difficulty: 'beginner', theme: 'dark' },
+export const defaults = () => ({ version: 1, settings: { sound: true, difficulty: 'beginner', theme: 'dark', language: 'auto' },
   bestTimes: { beginner: null, intermediate: null, expert: null }, stats: { gamesPlayed: 0, gamesWon: 0 }, lastCustomConfig: copyCustom(DEFAULT_CUSTOM), current: null });
 const validTime = n => Number.isFinite(n) && n >= 0 && n <= 31536000000;
 export function parseSave(raw) {
@@ -15,6 +16,7 @@ export function parseSave(raw) {
   if (typeof data.settings?.sound === 'boolean') clean.settings.sound = data.settings.sound;
   if (isLevel(data.settings?.difficulty)) clean.settings.difficulty = data.settings.difficulty;
   if (['dark', 'light'].includes(data.settings?.theme)) clean.settings.theme = data.settings.theme;
+  if (languageOptions.includes(data.settings?.language)) clean.settings.language = data.settings.language;
   for (const d of Object.keys(clean.bestTimes)) if (validTime(data.bestTimes?.[d])) clean.bestTimes[d] = data.bestTimes[d];
   for (const k of Object.keys(clean.stats)) if (Number.isSafeInteger(data.stats?.[k]) && data.stats[k] >= 0) clean.stats[k] = data.stats[k];
   clean.stats.gamesWon = Math.min(clean.stats.gamesWon, clean.stats.gamesPlayed);

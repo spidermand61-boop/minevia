@@ -1,3 +1,4 @@
+import { t, minesText } from './i18n.js';
 import { LEVELS } from './board.js';
 import { Camera, BASE_CELL_SIZE, CELL_GAP, BOARD_PADDING } from './camera.js';
 import { formatTime } from './game.js';
@@ -30,13 +31,15 @@ export class UI {
     this.resize.observe($('board-viewport'));
   }
   home(data, selected, canContinue) {
+    const switching = $('app').classList.contains('is-playing');
     $('app').classList.remove('is-playing');
     $('home').hidden = false; $('play').hidden = true;
+    if (switching) window.scrollTo(0, 0);
     document.querySelectorAll('[data-level]').forEach(el => el.setAttribute('aria-pressed', String(el.dataset.level === selected)));
     const best = data.bestTimes[selected] ?? null;
-    $('home-best').textContent = selected === 'custom' ? 'Your field. Your challenge.' : best === null ? 'Make your first mark' : `${LEVELS[selected].name} · ${formatTime(best)}`;
+    $('home-best').textContent = selected === 'custom' ? t("Your field. Your challenge.") : best === null ? t("Make your first mark") : `${t(LEVELS[selected].name)} · ${formatTime(best)}`;
     $('continue').hidden = !canContinue;
-    $('home-stats').textContent = data.stats.gamesPlayed ? `${data.stats.gamesWon} won · ${data.stats.gamesPlayed} played` : 'A fresh field. A fresh start.';
+    $('home-stats').textContent = data.stats.gamesPlayed ? t('{won} won · {played} played', { won: data.stats.gamesWon, played: data.stats.gamesPlayed }) : t("A fresh field. A fresh start.");
   }
   createBoard(game) {
     const b = game.board; this.board = b; this.camera = new Camera(b.cols, b.rows); this.focusIndex = 0;
@@ -59,10 +62,12 @@ export class UI {
     this.render(game, true);
   }
   showGame(game, best) {
+    const switching = !$('app').classList.contains('is-playing');
     $('app').classList.add('is-playing');
     $('home').hidden = true; $('play').hidden = false;
+    if (switching) window.scrollTo(0, 0);
     const b = game.board;
-    $('level-name').textContent = b.name; $('level-meta').textContent = `${b.cols} × ${b.rows} · ${b.mineCount} mines`;
+    $('level-name').textContent = t(b.name); $('level-meta').textContent = `${b.cols} × ${b.rows} · ${minesText(b.mineCount)}`;
     $('game-best').textContent = best === null ? '—' : formatTime(best);
     this.layout(); this.render(game);
   }
@@ -83,7 +88,7 @@ export class UI {
   fit() { this.camera?.fit(); this.applyCamera(); }
   render(game, initial = false) {
     const b = game.board, lost = b.state === 'lost';
-    $('game-hint').textContent = lost ? 'Mines revealed · Explore the field · Tap for results' : 'Tap to reveal · Hold to flag · Pinch to zoom · Drag to explore';
+    $('game-hint').textContent = lost ? t("Mines revealed · Explore the field · Tap for results") : t("Tap to reveal · Hold to flag · Pinch to zoom · Drag to explore");
     $('board').classList.toggle('won', b.state === 'won');
     $('mines').textContent = b.state === 'won' ? '0' : String(b.mineCount - b.flagCount);
     this.time(game.time);
@@ -98,8 +103,8 @@ export class UI {
         cell.className = `cell ${kind}${i === b.exploded ? ' exploded' : ''}${changed && open ? ' just-opened' : ''}${changed && flag ? ' just-flagged' : ''}`;
         cell.innerHTML = content; cell.dataset.kind = kind;
       }
-      const status = wrong ? 'Incorrect flag' : mine ? flag ? 'Correctly flagged mine' : 'Mine' : flag ? 'Flagged' : open ? b.counts[i] ? `${b.counts[i]} adjacent mines` : 'Empty' : 'Closed';
-      cell.setAttribute('aria-label', `Row ${Math.floor(i / b.cols) + 1}, column ${i % b.cols + 1}: ${status}`);
+      const status = wrong ? t("Incorrect flag") : mine ? flag ? t("Correctly flagged mine") : t("Mine") : flag ? t("Flagged") : open ? b.counts[i] ? t('Adjacent: {mines}', { mines: minesText(b.counts[i]) }) : t("Empty") : t("Closed");
+      cell.setAttribute('aria-label', t('Row {row}, column {column}: {status}', { row: Math.floor(i / b.cols) + 1, column: i % b.cols + 1, status }));
     }
   }
   time(ms) { $('time').textContent = formatTime(ms); }
@@ -111,8 +116,11 @@ export class UI {
   announce(text) { $('announcement').textContent = text; }
   dialog(html, onDismiss) {
     this.dismiss = onDismiss; $('modal-content').innerHTML = html;
-    if (!this.modal.open) this.modal.showModal();
+    if (!this.modal.open) {
+      document.documentElement.classList.add('modal-open');
+      this.modal.showModal();
+    }
   }
-  close() { this.dismiss = null; this.modal.close(); }
-  notice(text) { $('storage-notice').hidden = !text; $('storage-notice').textContent = text; }
+  close() { this.dismiss = null; this.modal.close(); document.documentElement.classList.remove('modal-open'); }
+  notice(key) { this.noticeKey = key; $('storage-notice').hidden = !key; $('storage-notice').textContent = key ? t(key) : ''; }
 }

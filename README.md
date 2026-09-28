@@ -22,6 +22,7 @@ css/game.css            Responsive dark/light UI and reduced-motion styles
 js/board.js             Configuration-driven board, placement, BFS, chord
 js/config.js            Custom bounds, defaults, validation, safe mine limit
 js/custom.js            Custom setup form and numeric step controls
+js/i18n.js              English/Ukrainian/Russian dictionaries, locale and plurals
 js/game.js              Game clock, independent pause reasons, scores, restoration
 js/input.js             Pointer state machine: pinch, pan, hold, mouse/keyboard
 js/camera.js            Fixed board geometry, scale/offset, fit, bounds, hit tests
@@ -91,7 +92,7 @@ This is one ranked dimension: completed difficulty first, then speed in whole se
 ```json
 {
   "version": 1,
-  "settings": { "sound": true, "difficulty": "beginner", "theme": "dark" },
+  "settings": { "sound": true, "difficulty": "beginner", "theme": "dark", "language": "auto" },
   "bestTimes": { "beginner": null, "intermediate": null, "expert": null },
   "stats": { "gamesPlayed": 0, "gamesWon": 0 },
   "lastCustomConfig": { "width": 16, "height": 16, "mines": 40 },
@@ -133,3 +134,19 @@ This validates filenames, exact-case relative paths, expected external resources
 ## Known limits and certification
 
 This is a release candidate prepared for Portal validation, not a claim of YouTube certification. Live SDK behavior, account cloud saves, host eviction, actual leaderboard display, and physical Android/iOS audio/touch still require the Developer Portal and real devices. Synthetic Chromium touch checks do not establish Safari/WebKit compatibility. Startup and frame-rate targets need measurement on target devices with the real SDK/network. No daily mode, external services, guaranteed no-guess generation or cloud conflict resolution is included. The official host controls cross-device save arbitration.
+
+## Language and page scrolling
+
+Auto uses the first nonempty `navigator.languages` entry, falling back to `navigator.language`. Region tags normalize to a lowercase base (`uk-UA` → `uk`). English, Ukrainian and Russian are supported; any other primary device language selects English, even if a later preference is supported. No geolocation or network lookup is used.
+
+Settings → Language provides Auto / English / Українська / Русский. The optional v1 `settings.language` field defaults to `auto` for older or invalid saves and uses the same local/YouTube persistence adapter as other preferences. Changing language updates document `lang`, copy, labels and cell accessibility descriptions in place, without recreating the board or camera. Settings retains its existing pause behavior. English source phrases are dictionary keys; `t(key, parameters)` interpolates trusted text, and `Intl.PluralRules` supplies mine-count forms. MINESWEEPER and STILLFIELD remain brands; language names remain native autonyms. The no-JavaScript fallback is explicitly trilingual because automatic detection requires JavaScript.
+
+Home has natural document height and native vertical scrolling. Bottom padding includes 24px plus the safe-area inset. Game alone uses the dynamic viewport height with a minimum usable height; on very short screens the document can scroll outside the board. `touch-action: none` and pointer/wheel capture remain exclusive to the board viewport. Dialogs scroll internally, account for all safe-area insets, contain overscroll, and temporarily lock document scrolling. Switching Home ↔ Game resets document scroll to the top; selecting a difficulty or switching language does not.
+
+Extra locale/layout verification (Playwright Chromium + WebKit installed):
+
+```sh
+node tests/i18n-scroll-browser.mjs
+```
+
+`PLAYWRIGHT_PATH` can point to an external Playwright installation; `TEST_URL` can point to a static preview under a subpath. The release script automatically includes `js/i18n.js`; all runtime asset/module paths remain relative for GitHub Pages.
