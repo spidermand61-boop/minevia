@@ -103,3 +103,27 @@ Right click uses the existing inverse camera hit test and flag operation. Right-
 - [x] Existing gameplay, save/SDK contract and 18 camera viewport/difficulty scenarios remain covered by the full browser runner. No related browser page/console errors in the added suites.
 
 Physical Android/iPhone, Safari/WebKit and the actual Playables host remain a manual validation gate. These results use Chromium (including native CDP touch events), not physical devices. Custom best-time leaderboards are intentionally not implemented; preset records are preserved.
+
+## Localization and mobile page scroll (2026-09-28)
+
+Runtime changes: `js/i18n.js` (new), `index.html`, `css/game.css`, `js/main.js`, `js/ui.js`, `js/custom.js`, `js/save.js`. Documentation: `README.md`, `testing.md`. New tests: `tests/i18n.test.js`, `tests/i18n-scroll-browser.mjs`. The board engine, game state machine, input gestures, camera math and YouTube adapter are unchanged.
+
+Locale selection uses the first nonempty navigator.languages entry, then navigator.language, normalized to a base locale. Supported: en/uk/ru. Unsupported primary languages use English. Manual settings.language overrides Auto, persists through the existing v1 save adapter and safely defaults for older/invalid saves. Native language names and product brands intentionally retain their spelling. Mine counts use Intl.PluralRules, including 1/2/5/10/11/21/22/25. Live language changes update text and ARIA without replacing cells or the camera; the timer stays paused during Settings and resumes normally afterward.
+
+Scroll audit: the reported complete menu-scroll lock was **not reproduced** in the supplied local baseline. At 390×844, Chromium had scrollHeight 881 and could scroll 37px. No global touch-action:none or touchmove/wheel preventDefault existed; gesture listeners were already scoped to board-viewport. Identified layout weaknesses were shared fixed html/body height, only safe-area bottom padding (zero on ordinary viewports), and no modal background scroll lock. The implementation removes shared fixed sizing, gives Home natural height and bottom breathing room, confines dynamic viewport sizing to Game, and allows page scrolling in exceptionally short game containers. Only an open dialog temporarily locks document overflow; dialog content scrolls internally. Safe-area insets constrain page and modal edges. Home/Game transitions reset page scroll deliberately; language changes and difficulty selection do not.
+
+Verified:
+
+- 37 unit/contract tests passed, including locale normalization, fallback/preference order, manual/Auto selection, dictionary completeness/interpolation, pluralization and language persistence/migration.
+- Full existing Chromium browser suite passed: gameplay/input/save/pause, SDK fixture lifecycle/audio/storage/scores, 18 camera/preset/viewport combinations, native pinch/pan/hold, two-stage loss and all Custom cases.
+- Chromium and WebKit 26.5 passed seven device locales: en-US, en-GB, uk-UA, uk, ru-RU, ru, de-DE.
+- Both engines passed live en/uk/ru/Auto changes, exact board/timer/camera preservation while Settings is open, persisted override after reload and saved-game Continue.
+- Responsive layouts tested: 390×844, 393×852, 844×390, 852×393, 360×640, 320×568 and 390×600. No horizontal page overflow. Custom inputs/Start/Cancel and Settings Done reachable; modal bounds fit the viewport and background scroll remains unchanged while scrolling the dialog.
+- At 390×280, the game document can scroll outside the board. Board drag pans without revealing cells or scrolling the document.
+- Native mobile scrolling was injected through Chromium touch events. Mobile WebKit does not expose native swipe/wheel injection through this test API: its scroll geometry was checked with DOM scroll operations, and board drag with mouse events. This distinction is intentional.
+- Ukrainian Home, Custom and Game screenshots inspected, including narrow/landscape layouts. The running app's localized Settings was also inspected through the desktop browser UI.
+- The same new browser suite passed against the extracted release ZIP served under `/minevia/`, checking relative module/asset paths as used by GitHub Pages. No page/console errors in these scenarios.
+- Static text audit found all normal UI copy marked for translation; dynamic labels, help, storage notices and accessibility descriptions use the centralized dictionary. The no-JavaScript message is trilingual by necessity.
+- Deterministic release validation passed: 16 runtime files, 36,906-byte ZIP. The new i18n module is packaged automatically; archive/test outputs remain ignored by Git.
+
+Remaining physical-device gate: actual iPhone Safari top/bottom browser chrome, real notch/home-indicator insets, keyboard/gesture interaction and the real YouTube Playables host. Emulated WebKit and viewport resizing do not certify those physical behaviors. No known failing automated checks remain.
