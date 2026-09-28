@@ -35,7 +35,7 @@ export async function runLossChecks(browser,out) {
       await p.waitForFunction(()=>testSaved&&JSON.parse(testSaved).current===null);
       const saved=await p.evaluate(()=>JSON.parse(testSaved));assert.equal(saved.stats.gamesPlayed,1);assert.equal(saved.stats.gamesWon,0);
       const sounds=await p.evaluate(()=>audioStarts);assert.equal(sounds,2,'one two-note loss effect');
-      const state=await p.locator('#board').innerHTML();
+      const state=await p.locator('.cell').evaluateAll(cells=>cells.map(c=>[c.dataset.kind,c.getAttribute('aria-label')]));
       for(let i=0;i<6;i++)await p.click('#zoom-in');
       await p.click('#zoom-out');await noModal();
       const v=await p.locator('#board-viewport').boundingBox(),cx=v.x+v.width/2,cy=v.y+v.height/2;
@@ -61,7 +61,7 @@ export async function runLossChecks(browser,out) {
       }
       await p.click('#fit');await noModal();
       await cell(mine).click({button:'right'});await cell(mine).press('f');await noModal();
-      assert.equal(await p.locator('#board').innerHTML(),state,'navigation must not change revealed/flagged cells');
+      assert.deepEqual(await p.locator('.cell').evaluateAll(cells=>cells.map(c=>[c.dataset.kind,c.getAttribute('aria-label')])),state,'navigation must not change revealed/flagged cells');
       // Flag mode does not prevent a deliberate post-loss tap from showing results.
       await p.click('#flag-mode');await tap(cell(mine));
       assert.equal(await p.locator('#modal-title').textContent(),'Game over.');

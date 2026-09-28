@@ -1,4 +1,4 @@
-import { LEVELS } from './board.js';
+import { customSetup } from './custom.js';
 import { Game, formatTime, scoreFor, bestScore } from './game.js';
 import { YouTubeAdapter } from './youtube.js';
 import { SaveStore } from './save.js';
@@ -58,11 +58,11 @@ function setFlag(value) {
 }
 function openGame() {
   inGame = true; ui.close(); game.resume('menu'); game.resume('dialog'); game.resume('user');
-  ui.createBoard(game); ui.showGame(game, store.data.bestTimes[game.board.difficulty]);
+  ui.createBoard(game); ui.showGame(game, store.data.bestTimes[game.board.difficulty] ?? null);
   syncAudio(); tick(); ui.focus(0);
 }
-function newGame() {
-  game = new Game(selected); setFlag(false); store.data.settings.difficulty = selected;
+function newGame(customConfig = store.data.lastCustomConfig) {
+  game = new Game(selected, undefined, customConfig); setFlag(false); store.data.settings.difficulty = selected;
   openGame(); snapshot(true);
 }
 function showHome() {
@@ -87,7 +87,7 @@ function act(index, flag) {
     if (game.board.state === 'won') {
       store.data.stats.gamesWon++;
       const d = game.board.difficulty, old = store.data.bestTimes[d];
-      store.data.bestTimes[d] = old === null ? Math.floor(game.time) : Math.min(old, Math.floor(game.time));
+      if (d !== 'custom') store.data.bestTimes[d] = old === null ? Math.floor(game.time) : Math.min(old, Math.floor(game.time));
     }
     stopClock();
   }
@@ -99,10 +99,10 @@ function act(index, flag) {
   if (result.ended && game.board.state === 'won') showResult();
 }
 function showResult() {
-  const won = game.board.state === 'won', best = store.data.bestTimes[game.board.difficulty];
+  const won = game.board.state === 'won', best = store.data.bestTimes[game.board.difficulty] ?? null;
   const close = () => { game.reviewLoss(); ui.close(); };
-  ui.dialog(`<div class="dialog-icon">${icon(won ? 'trophy' : 'mine')}</div><p class="eyebrow">${game.board.name.toUpperCase()} · FIELD ${won ? 'CLEARED' : 'COMPLETE'}</p><h2 id="modal-title">${won ? 'You win!' : 'Game over.'}</h2><p>${won ? 'A clear field. A well-earned moment.' : 'One square closer to your next great game.'}</p><div class="result-stats"><div><span>TIME</span><strong>${formatTime(game.time)}</strong></div><div><span>BEST</span><strong>${best === null ? '—' : formatTime(best)}</strong></div></div>${won ? `<p>Score ${scoreFor(game.board.difficulty, game.time).toLocaleString('en-US')} · Personal high ${bestScore(store.data.bestTimes).toLocaleString('en-US')}</p>` : ''}<button id="again" class="primary">Play again ${icon('arrow')}</button><button id="view-field" class="secondary">View field</button>`, close);
-  $('again').onclick = () => { selected = game.board.difficulty; newGame(); };
+  ui.dialog(`<div class="dialog-icon">${icon(won ? 'trophy' : 'mine')}</div><p class="eyebrow">${game.board.name.toUpperCase()} · FIELD ${won ? 'CLEARED' : 'COMPLETE'}</p><h2 id="modal-title">${won ? 'You win!' : 'Game over.'}</h2><p>${won ? 'A clear field. A well-earned moment.' : 'One square closer to your next great game.'}</p><div class="result-stats"><div><span>TIME</span><strong>${formatTime(game.time)}</strong></div><div><span>BEST</span><strong>${best === null ? '—' : formatTime(best)}</strong></div></div>${won && game.board.difficulty !== 'custom' ? `<p>Score ${scoreFor(game.board.difficulty, game.time).toLocaleString('en-US')} · Personal high ${bestScore(store.data.bestTimes).toLocaleString('en-US')}</p>` : ''}<button id="again" class="primary">Play again ${icon('arrow')}</button><button id="view-field" class="secondary">View field</button>`, close);
+  $('again').onclick = () => { selected = game.board.difficulty; newGame(game.board.customConfig); };
   $('view-field').onclick = close;
 }
 function pauseDialog() {
@@ -118,6 +118,13 @@ function confirmNew(next) {
   const cancel = () => { ui.close(); resume('dialog'); };
   ui.dialog(`<h2 id="modal-title">A fresh field?</h2><p>This will replace your unfinished game. Your best times and statistics stay with you.</p><button id="confirm-new" class="primary">New game</button><button id="cancel-new" class="secondary">Keep playing</button>`, cancel);
   $('confirm-new').onclick = next; $('cancel-new').onclick = cancel;
+}
+function setupCustom() {
+  customSetup(ui, store.data.lastCustomConfig, config => {
+    store.data.lastCustomConfig = config; store.data.settings.difficulty = selected = 'custom';
+    snapshot();
+    confirmNew(() => newGame(config));
+  });
 }
 function settings() {
   pause('dialog'); snapshot(true);
@@ -154,10 +161,11 @@ async function boot() {
   document.querySelectorAll('[data-level]').forEach(button => button.onclick = () => {
     selected = button.dataset.level; store.data.settings.difficulty = selected; snapshot();
     ui.home(store.data, selected, Boolean(game && ['ready', 'playing'].includes(game.board.state)));
+    if (selected === 'custom') setupCustom();
   });
-  $('new-game').onclick = () => confirmNew(newGame);
+  $('new-game').onclick = () => selected === 'custom' ? setupCustom() : confirmNew(() => newGame());
   $('continue').onclick = openGame; $('menu').onclick = showHome;
-  $('restart').onclick = () => confirmNew(() => { selected = game.board.difficulty; newGame(); });
+  $('restart').onclick = () => confirmNew(() => { selected = game.board.difficulty; newGame(game.board.customConfig); });
   $('settings').onclick = settings; $('how-to').onclick = howTo; $('pause').onclick = pauseDialog;
   $('flag-mode').onclick = () => setFlag(!flagMode);
   $('zoom-in').onclick = () => { input.reset(); ui.zoom(ZOOM_STEP); };

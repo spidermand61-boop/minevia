@@ -1,7 +1,7 @@
 import { Board } from './board.js';
 export class Game {
-  constructor(difficulty, now = () => performance.now()) {
-    this.board = new Board(difficulty); this.now = now; this.elapsed = 0;
+  constructor(difficulty, now = () => performance.now(), customConfig) {
+    this.board = new Board(difficulty, customConfig); this.now = now; this.elapsed = 0;
     this.startedAt = null; this.pauses = new Set(); this.lossStage = null;
   }
   // Board outcome stays terminal; presentation stages are transient, never resumable saves.
@@ -35,7 +35,7 @@ export class Game {
     const board = Board.restore(data);
     if (!board || !Number.isFinite(data.elapsed) || data.elapsed < 0 || data.elapsed > 31536000000 ||
         (!board.generated && data.elapsed !== 0)) return null;
-    const g = new Game(data.difficulty, now); g.board = board; g.elapsed = data.elapsed;
+    const g = new Game(data.difficulty, now, data.customConfig); g.board = board; g.elapsed = data.elapsed;
     g.pause('menu'); return g;
   }
 }
@@ -45,6 +45,7 @@ export function formatTime(ms) {
 }
 export function scoreFor(difficulty, ms) {
   const weight = { beginner: 1, intermediate: 2, expert: 3 }[difficulty];
+  if (!weight) return 0;
   return weight * 1000000 + Math.max(0, 999999 - Math.floor(ms / 1000));
 }
 export function bestScore(bestTimes) {

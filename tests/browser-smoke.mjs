@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { runPlatformChecks } from './platform-browser.mjs';
 import { runCameraChecks } from './camera-browser.mjs';
 import { runLossChecks } from './loss-browser.mjs';
+import { runCustomChecks } from './custom-browser.mjs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { mkdir } from 'node:fs/promises';
@@ -10,6 +11,9 @@ const { chromium } = require(process.env.PLAYWRIGHT_PATH || 'playwright');
 const browser = await chromium.launch({ headless: true });
 const out = fileURLToPath(new URL('../test-results/', import.meta.url));
 await mkdir(out, { recursive: true });
+if (process.argv.includes('--custom-only')) {
+  await runCustomChecks(browser, out); await browser.close(); process.exit(0);
+}
 const errors = [];
 const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
 page.on('pageerror', e => errors.push(e.message));
@@ -90,4 +94,5 @@ console.log('PASS: menu, gameplay, mouse, right-click, keyboard, flag mode, long
 await runPlatformChecks(browser, out);
 await runCameraChecks(browser, out);
 await runLossChecks(browser, out);
+await runCustomChecks(browser, out);
 await browser.close();

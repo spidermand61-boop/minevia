@@ -1,21 +1,25 @@
+import { DEFAULT_CUSTOM, validCustom, copyCustom } from './config.js';
 export const LEVELS = Object.freeze({
   beginner: { name: 'Beginner', cols: 9, rows: 9, mines: 10 },
   intermediate: { name: 'Intermediate', cols: 16, rows: 16, mines: 40 },
   expert: { name: 'Expert', cols: 30, rows: 16, mines: 99 }
 });
-export const isLevel = key => Object.hasOwn(LEVELS, key);
+export const isLevel = key => key === 'custom' || Object.hasOwn(LEVELS, key);
 
 export class Board {
-  constructor(difficulty = 'beginner') {
+  constructor(difficulty = 'beginner', customConfig = DEFAULT_CUSTOM) {
     if (!isLevel(difficulty)) throw new Error('Unknown difficulty');
     this.difficulty = difficulty;
-    Object.assign(this, LEVELS[difficulty]);
+    if (difficulty === 'custom' && !validCustom(customConfig)) throw new Error('Invalid custom configuration');
+    this.customConfig = difficulty === 'custom' ? copyCustom(customConfig) : null;
+    const config = this.customConfig ? { name: 'Custom', cols: customConfig.width, rows: customConfig.height, mines: customConfig.mines } : LEVELS[difficulty];
+    this.name = config.name; this.cols = config.cols; this.rows = config.rows;
     this.size = this.cols * this.rows;
     this.mines = new Uint8Array(this.size);
     this.opened = new Uint8Array(this.size);
     this.flags = new Uint8Array(this.size);
     this.counts = new Uint8Array(this.size);
-    this.mineCount = LEVELS[difficulty].mines;
+    this.mineCount = config.mines;
     this.generated = false;
     this.state = 'ready';
     this.exploded = -1;
@@ -87,12 +91,14 @@ export class Board {
   serialize() {
     return { difficulty: this.difficulty, cols: this.cols, rows: this.rows,
       generated: this.generated, state: this.state,
+      ...(this.customConfig ? { customConfig: copyCustom(this.customConfig) } : {}),
       // Each cell is one ASCII digit: mine bit 1, open bit 2, flag bit 4.
       cells: Array.from(this.mines, (v, i) => v + 2 * this.opened[i] + 4 * this.flags[i]).join('') };
   }
   static restore(data) {
     if (!data || !isLevel(data.difficulty)) return null;
-    const b = new Board(data.difficulty);
+    if (data.difficulty === 'custom' && !validCustom(data.customConfig)) return null;
+    const b = new Board(data.difficulty, data.customConfig);
     if (data.cols !== b.cols || data.rows !== b.rows || typeof data.cells !== 'string' ||
         data.cells.length !== b.size || !/^[0-7]+$/.test(data.cells) ||
         typeof data.generated !== 'boolean' || !['ready', 'playing'].includes(data.state)) return null;

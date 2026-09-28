@@ -33,8 +33,8 @@ export class UI {
     $('app').classList.remove('is-playing');
     $('home').hidden = false; $('play').hidden = true;
     document.querySelectorAll('[data-level]').forEach(el => el.setAttribute('aria-pressed', String(el.dataset.level === selected)));
-    const best = data.bestTimes[selected];
-    $('home-best').textContent = best === null ? 'Make your first mark' : `${LEVELS[selected].name} · ${formatTime(best)}`;
+    const best = data.bestTimes[selected] ?? null;
+    $('home-best').textContent = selected === 'custom' ? 'Your field. Your challenge.' : best === null ? 'Make your first mark' : `${LEVELS[selected].name} · ${formatTime(best)}`;
     $('continue').hidden = !canContinue;
     $('home-stats').textContent = data.stats.gamesPlayed ? `${data.stats.gamesWon} won · ${data.stats.gamesPlayed} played` : 'A fresh field. A fresh start.';
   }

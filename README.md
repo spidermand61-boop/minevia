@@ -19,7 +19,9 @@ The official SDK script is requested first. Outside YouTube, `ytgame.IN_PLAYABLE
 ```text
 index.html              Entry point; SDK precedes game module
 css/game.css            Responsive dark/light UI and reduced-motion styles
-js/board.js             Pure deterministic board operations, placement, BFS, chord
+js/board.js             Configuration-driven board, placement, BFS, chord
+js/config.js            Custom bounds, defaults, validation, safe mine limit
+js/custom.js            Custom setup form and numeric step controls
 js/game.js              Game clock, independent pause reasons, scores, restoration
 js/input.js             Pointer state machine: pinch, pan, hold, mouse/keyboard
 js/camera.js            Fixed board geometry, scale/offset, fit, bounds, hit tests
@@ -34,18 +36,20 @@ scripts/release.py      Dependency validation and deterministic ZIP packaging
 tests/                 Engine, persistence, SDK contract and browser tests
 ```
 
-The grid contains at most 480 cells. Cells are created once per new/restored game; only state changes update their content. DOM makes each square keyboard and screen-reader accessible without duplicating a canvas in hidden markup. No continuous animation/render loop. A 200 ms UI timer runs only during an active game; elapsed time comes from `performance.now()`, not interval counts.
+The grid contains at most 1,200 cells. Cells are created once per new/restored game; only state changes update their content. DOM makes each square keyboard and screen-reader accessible without duplicating a canvas in hidden markup. No continuous animation/render loop. A 200 ms UI timer runs only during an active game; elapsed time comes from `performance.now()`, not interval counts.
 
 ## Gameplay and controls
 
 - Beginner: 9 × 9 / 10 mines; Intermediate: 16 × 16 / 40; Expert: 30 × 16 / 99.
-- Left click/tap: reveal. Right click or 430 ms touch hold: toggle flag.
+- Custom: width 5–40, height 5–30, mines 1 through `width * height - 9`. The nine-cell reserve protects an interior first opening. Exact integer number inputs and +/− controls validate before Start. Reducing dimensions automatically lowers an excessive mine count. Last-used custom parameters are remembered.
+- Left click/tap: reveal. Right click or 430 ms touch hold: toggle flag. Right-drag never pans or reveals; opened or terminal cells cannot be flagged. The context menu is suppressed only over the board.
 - Flag mode: tap toggles flags. The hold highlight confirms the gesture; release cannot also reveal.
 - Tap an open number to chord when the adjacent flag count matches. Incorrect flags can lose.
 - Drag more than 9 CSS px to pan; this cancels reveal/long press. Two pointers pinch around their midpoint and cancel gameplay until all fingers lift. After one finger lifts, the other can keep panning. Mouse wheel zooms under the cursor. +/− zoom by 1.2 around the viewport center; Fit shows the entire board.
 - Arrows: move focus. Enter: reveal/chord. Space: selected mode. F: flag. Home/End: row edges. Escape: pause or dismiss a dialog.
 - Menus, settings and manual pause stop time. Restart asks before replacing an active field.
 - First reveal generates mines outside its full 3 × 3 neighborhood. Flagging before the first reveal does not generate mines or start time. Boards are random, not guaranteed to be solvable without guessing.
+- Loss enters `lost-reveal`: all mines and incorrect flags appear, the timer stops, and gameplay locks while camera navigation remains available. A separate ordinary tap/left click (or Enter/Space for keyboard access) opens `game-over`. Pan, pinch, hold, right click and camera buttons never open that modal. There is no automatic timeout. View field returns to review; the mine sound plays only once. Finished games cannot Continue.
 - Games played counts first reveals, including subsequently abandoned games. Games won counts completed safe fields.
 
 Layout-only resizing preserves board, flags, elapsed time, and progress. A flex container gives the camera the space remaining below the compact HUD and above controls, with safe-area padding. Landscape phones put the heading and counters in one row. ResizeObserver measures that container; there are no hard-coded viewport-height subtractions.
@@ -78,6 +82,8 @@ score = difficultyWeight * 1,000,000 + max(0, 999,999 - floor(elapsedMs / 1,000)
 weight: beginner 1, intermediate 2, expert 3
 ```
 
+Custom wins count in play/win statistics but do not create best times or leaderboard scores. The three standard records remain separate.
+
 This is one ranked dimension: completed difficulty first, then speed in whole seconds. Faster wins rank higher within the same difficulty; exceptionally long games clamp at the difficulty baseline. The personal high is derived from saved per-difficulty best times and shown in results/settings. Only an acknowledged save can trigger score submission. Failed submissions retry on a later successful save. There are no invented difficulty-specific leaderboard APIs.
 
 ## Save format and migration
@@ -88,11 +94,14 @@ This is one ranked dimension: completed difficulty first, then speed in whole se
   "settings": { "sound": true, "difficulty": "beginner", "theme": "dark" },
   "bestTimes": { "beginner": null, "intermediate": null, "expert": null },
   "stats": { "gamesPlayed": 0, "gamesWon": 0 },
+  "lastCustomConfig": { "width": 16, "height": 16, "mines": 40 },
   "current": null
 }
 ```
 
-An unfinished `current` contains `difficulty`, `cols`, `rows`, `generated`, `state`, `elapsed` (milliseconds), and `cells`. Each cell is one ASCII digit with bit 0 = mine, bit 1 = opened, bit 2 = flagged. Counts are derived on restore. Expert snapshots are under 2 KB. Finished games clear `current`, preserving records/statistics.
+For `difficulty: "custom"`, unfinished state also stores `customConfig: { width, height, mines }`, validated before board allocation. Restart uses the active board’s configuration, including after Continue. Optional custom fields extend schema version 1; older version-1 saves receive default custom settings. Camera and loss-presentation stages are not persisted.
+
+An unfinished `current` contains `difficulty`, `cols`, `rows`, `generated`, `state`, `elapsed` (milliseconds), and `cells`. Each cell is one ASCII digit with bit 0 = mine, bit 1 = opened, bit 2 = flagged. Counts are derived on restore. Expert snapshots are under 2 KB; maximum Custom snapshots remain small (about 2 KB including metadata). Finished games clear `current`, preserving records/statistics.
 
 Writes debounce by 350 ms, serialize asynchronously and coalesce newer states. First reveal, outcome and pause flush immediately. Timer-only ticks do not write. Save/load validates dimensions, cell length, mine count, impossible opened mines/flags, state and elapsed bounds. Corrupted version-1 saves reset safely. Unknown schema versions open a read-only session, preserving the original save; add explicit migrations to `parseSave` before changing the schema version. Continue never counts time spent away.
 

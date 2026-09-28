@@ -5,7 +5,7 @@ const geometry = page => page.evaluate(() => {
   return { board:{x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom},
     view:{x:p.x,y:p.y,width:p.width,height:p.height,right:p.right,bottom:p.bottom},scale:m.a,x:m.e,y:m.f };
 });
-const checkFit = async page => {
+export const checkFit = async page => {
   const g=await geometry(page), {board:b,view:v}=g;
   assert.ok(v.width>0&&v.height>0,'nonzero board viewport');
   assert.ok(b.x>=v.x-1&&b.y>=v.y-1&&b.right<=v.right+1&&b.bottom<=v.bottom+1,`not fitted: ${JSON.stringify(g)}`);
@@ -13,7 +13,7 @@ const checkFit = async page => {
   return g;
 };
 const state = page => page.evaluate(() => [...document.querySelectorAll('.cell')].map(c=>c.dataset.kind));
-const middleCell = async page => page.evaluate(() => {
+export const middleCell = async page => page.evaluate(() => {
   const v=document.getElementById('board-viewport').getBoundingClientRect();
   const candidates=[...document.querySelectorAll('.cell')].filter(c=>!c.classList.contains('open')&&!c.classList.contains('flagged')).map(c=>({c,r:c.getBoundingClientRect()})).filter(({r})=>r.x>=v.x+10&&r.y>=v.y+10&&r.right<=v.right-10&&r.bottom<=v.bottom-10);
   candidates.sort((a,b)=>Math.hypot(a.r.x-v.x-v.width/2,a.r.y-v.y-v.height/2)-Math.hypot(b.r.x-v.x-v.width/2,b.r.y-v.y-v.height/2));

@@ -1,7 +1,8 @@
+import { DEFAULT_CUSTOM, validCustom, copyCustom } from './config.js';
 import { isLevel } from './board.js';
 import { Game, bestScore } from './game.js';
 export const defaults = () => ({ version: 1, settings: { sound: true, difficulty: 'beginner', theme: 'dark' },
-  bestTimes: { beginner: null, intermediate: null, expert: null }, stats: { gamesPlayed: 0, gamesWon: 0 }, current: null });
+  bestTimes: { beginner: null, intermediate: null, expert: null }, stats: { gamesPlayed: 0, gamesWon: 0 }, lastCustomConfig: copyCustom(DEFAULT_CUSTOM), current: null });
 const validTime = n => Number.isFinite(n) && n >= 0 && n <= 31536000000;
 export function parseSave(raw) {
   const clean = defaults();
@@ -17,6 +18,7 @@ export function parseSave(raw) {
   for (const d of Object.keys(clean.bestTimes)) if (validTime(data.bestTimes?.[d])) clean.bestTimes[d] = data.bestTimes[d];
   for (const k of Object.keys(clean.stats)) if (Number.isSafeInteger(data.stats?.[k]) && data.stats[k] >= 0) clean.stats[k] = data.stats[k];
   clean.stats.gamesWon = Math.min(clean.stats.gamesWon, clean.stats.gamesPlayed);
+  if (validCustom(data.lastCustomConfig)) clean.lastCustomConfig = copyCustom(data.lastCustomConfig);
   const restored = Game.restore(data.current);
   if (restored) clean.current = restored.serialize();
   return { data: clean, writable: true };

@@ -17,7 +17,8 @@ export class Input {
     });
     viewport.addEventListener('wheel', e => this.wheel(e), { passive: false });
     // Suppress the browser's menu only on the board, not HUD/document controls.
-    grid.addEventListener('contextmenu', e => e.preventDefault());
+    // Pointer capture can retarget a mouse contextmenu from a cell to its viewport.
+    viewport.addEventListener('contextmenu', e => e.preventDefault());
     grid.addEventListener('click', e => {
       // Keyboard/assistive-technology clicks have no pointer gesture. Native touch
       // clicks are ignored; pointerup is the single gameplay commit point.
@@ -77,6 +78,10 @@ export class Input {
       return;
     }
     const g = this.gesture; if (!g || g.id !== e.pointerId) return;
+    if (g.right) {
+      if (distance(p, g.start) > TAP_MOVE_THRESHOLD) this.cancelTap();
+      g.last = p; return;
+    }
     if (!g.dragging && distance(p, g.start) > TAP_MOVE_THRESHOLD) {
       g.dragging = true; this.cancelTap();
       // Include the threshold movement instead of making the camera jump later.
