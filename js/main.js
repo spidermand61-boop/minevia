@@ -25,7 +25,7 @@ function fatal() {
 }
 window.addEventListener('error', event => { if (event.error) { event.preventDefault(); fatal(); } });
 window.addEventListener('unhandledrejection', event => { event.preventDefault(); fatal(); });
-function syncAudio() { audio.setEnabled(store.data.settings.sound && adapter.audioEnabled && !adapter.paused && !(game?.paused)); }
+function syncAudio() { audio.setEnabled(store.data.settings.sound && adapter.audioEnabled && !adapter.paused && !document.hidden && !(game?.paused)); }
 function stopClock() { clearTimeout(clock); clock = null; }
 function tick() {
   stopClock();
@@ -38,7 +38,7 @@ function snapshot(immediate = false) {
   store.schedule(immediate);
 }
 function pause(reason) { game?.pause(reason); stopClock(); input?.reset(); syncAudio(); }
-function resume(reason) { game?.resume(reason); syncAudio(); tick(); }
+function resume(reason) { game?.resume(reason); syncAudio(); audio.checkState(); tick(); }
 function announceReady() {
   if (ready && !readySent && !adapter.paused) { readySent = true; adapter.gameReady(); }
 }
@@ -183,6 +183,17 @@ async function boot() {
     ui.home(store.data, selected, Boolean(game && ['ready', 'playing'].includes(game.board.state)));
     if (selected === 'custom') setupCustom();
   });
+  // Passive listeners never cancel scrolling or the same gesture's gameplay action.
+  const unlockAudio = event => {
+    if (!event.isTrusted || document.hidden || adapter.paused) return;
+    void audio.unlock();
+  };
+  for (const type of ['pointerdown', 'touchend', 'keydown'])
+    document.addEventListener(type, unlockAudio, { capture: true, passive: true });
+  // Bubble after Start/Resume handlers, which may have just lifted a game pause.
+  document.addEventListener('click', unlockAudio, { passive: true });
+  document.addEventListener('visibilitychange', () => { syncAudio(); audio.checkState(); });
+  window.addEventListener('pageshow', () => { syncAudio(); audio.checkState(); });
   $('new-game').onclick = () => selected === 'custom' ? setupCustom() : confirmNew(() => newGame());
   $('continue').onclick = openGame; $('menu').onclick = showHome;
   $('restart').onclick = () => confirmNew(() => { selected = game.board.difficulty; newGame(game.board.customConfig); });

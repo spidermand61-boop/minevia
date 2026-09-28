@@ -84,11 +84,12 @@ for (const [engine,type] of [['chromium',chromium],['webkit',webkit]]) {
     assert.equal(await p.locator('html').getAttribute('lang'),'uk');
     assert.equal(await p.locator('#board-viewport').evaluate(el=>getComputedStyle(el).touchAction),'none');
     for(const selector of ['html','body','#app','#home']) assert.notEqual(await p.locator(selector).evaluate(el=>getComputedStyle(el).touchAction),'none');
-    // Very short containers retain a usable board; scrolling belongs to the surrounding page.
+    // Very short game containers stay locked; the board shrinks to preserve controls.
     await p.setViewportSize({width:390,height:280});await p.evaluate(()=>scrollTo(0,0));
-    assert.ok(await p.evaluate(()=>document.documentElement.scrollHeight>innerHeight),'short game can scroll');
+    assert.ok(await p.locator('#board-viewport').evaluate(el=>el.clientHeight>0),'short game retains board');
     await swipe(p,engine,20,44,2);
-    assert.ok(await p.evaluate(()=>scrollY>0),'outside-board scrolling remains available');
+    assert.equal(await p.evaluate(()=>scrollY),0,'outside-board scrolling stays locked');
+    assert.ok(await p.locator('.board-controls').evaluate(el=>el.getBoundingClientRect().bottom<=innerHeight),'controls fit');
     await p.setViewportSize({width:390,height:844});await p.evaluate(()=>scrollTo(0,0));
     for(let i=0;i<5;i++)await p.click('#zoom-in');
     const boardBefore=await state(p), viewport=await p.locator('#board-viewport').boundingBox();
@@ -100,6 +101,18 @@ for (const [engine,type] of [['chromium',chromium],['webkit',webkit]]) {
     assert.equal(await p.evaluate(()=>scrollY),0,'board drag never scrolls page');
     await p.screenshot({path:`${out}${engine}-uk-game-390x844.png`});
     await p.click('#menu');assert.equal(await p.evaluate(()=>scrollY),0);
+    await swipe(p,engine,350,650,120);
+    assert.ok(await p.evaluate(()=>scrollY>0),'return to menu restores scrolling');
+    await p.click('[data-level=custom]');
+    await p.locator('#custom-width').fill('40');await p.locator('#custom-height').fill('30');
+    await p.click('#custom-start');await p.click('#confirm-new');
+    assert.equal(await p.locator('.cell').count(),1200);
+    assert.equal(await p.locator('body').evaluate(el=>getComputedStyle(el).position),'fixed');
+    await swipe(p,engine,20,44,2);assert.equal(await p.evaluate(()=>scrollY),0);
+    await p.click('#settings');await p.locator('#settings-done').scrollIntoViewIfNeeded();
+    assert.equal(await p.locator('body').evaluate(el=>el.classList.contains('game-mode')),true);
+    await p.click('#settings-done');await p.click('#fit');await p.click('#menu');
+    await swipe(p,engine,350,650,120);assert.ok(await p.evaluate(()=>scrollY>0));
     assert.deepEqual(errors,[]);
     await context.close();console.log(`PASS ${engine}: 7 locales, live/persisted override, Auto, board/timer/camera, 7 mobile layouts, scrolling (native touch in Chromium, geometry in mobile WebKit), dialogs, no console errors.`);
   } finally {await browser.close();}

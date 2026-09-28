@@ -141,7 +141,7 @@ Auto uses the first nonempty `navigator.languages` entry, falling back to `navig
 
 Settings → Language provides Auto / English / Українська / Русский. The optional v1 `settings.language` field defaults to `auto` for older or invalid saves and uses the same local/YouTube persistence adapter as other preferences. Changing language updates document `lang`, copy, labels and cell accessibility descriptions in place, without recreating the board or camera. Settings retains its existing pause behavior. English source phrases are dictionary keys; `t(key, parameters)` interpolates trusted text, and `Intl.PluralRules` supplies mine-count forms. MINESWEEPER and STILLFIELD remain brands; language names remain native autonyms. The no-JavaScript fallback is explicitly trilingual because automatic detection requires JavaScript.
 
-Home has natural document height and native vertical scrolling. Bottom padding includes 24px plus the safe-area inset. Game alone uses the dynamic viewport height with a minimum usable height; on very short screens the document can scroll outside the board. `touch-action: none` and pointer/wheel capture remain exclusive to the board viewport. Dialogs scroll internally, account for all safe-area insets, contain overscroll, and temporarily lock document scrolling. Switching Home ↔ Game resets document scroll to the top; selecting a difficulty or switching language does not.
+Home has natural document height and native vertical scrolling. Bottom padding includes 24px plus the safe-area inset. UI.setPageMode centrally switches Menu/Game. Game fixes the body to the available dynamic viewport (100% fallback), locks document overflow and overscroll, and removes the old 360px minimum height. The board shrinks into the remaining flex/grid space; document scrolling is disabled even outside the board, including loss review and results. Returning to Home removes the lock and resets scroll to the top. `touch-action: none` and pointer/wheel capture remain exclusive to the board viewport. Dialogs scroll internally, account for all safe-area insets, contain overscroll, and temporarily lock document scrolling. Switching Home ↔ Game resets document scroll to the top; selecting a difficulty or switching language does not.
 
 Extra locale/layout verification (Playwright Chromium + WebKit installed):
 
@@ -150,3 +150,15 @@ node tests/i18n-scroll-browser.mjs
 ```
 
 `PLAYWRIGHT_PATH` can point to an external Playwright installation; `TEST_URL` can point to a static preview under a subpath. The release script automatically includes `js/i18n.js`; all runtime asset/module paths remain relative for GitHub Pages.
+
+## Mobile audio recovery
+
+Effects are synthesized oscillator tones, with no audio asset URLs or downloads. One AudioContext is lazily created inside a trusted pointerdown/touchend/keyboard/click gesture. Start unlocks without autoplay; the same gesture still performs its ordinary UI action. Suspended or Safari-interrupted contexts are resumed inside the gesture call stack. Playback waits for running state and discards effects delayed longer than 250ms or invalidated by mute/pause. Each later gesture can retry a rejected or unresolved resume.
+
+Visibility/pageshow/game resume recheck state but never autoplay or create a context. YouTube mute, the existing Sound effects preference, platform pause, hidden document and game pause gate playback. Muting stops sources immediately instead of racing AudioContext.suspend against resume. No Music/master-volume setting or separate music track exists. The single SFX preference and host mute remain authoritative. Test-only instrumentation records state transitions and oscillator scheduling; production has no debug logging.
+
+```sh
+node tests/audio-browser.mjs
+```
+
+Chromium/WebKit automation can verify running contexts and scheduled effects, but does not establish audible output on a physical iPhone or its hardware silent-mode behavior.

@@ -30,11 +30,19 @@ export class UI {
     });
     this.resize.observe($('board-viewport'));
   }
+  setPageMode(mode) {
+    const playing = mode === 'game';
+    const changed = document.body.classList.contains('game-mode') !== playing;
+    for (const element of [document.documentElement, document.body]) {
+      element.classList.toggle('game-mode', playing);
+      element.classList.toggle('menu-mode', !playing);
+    }
+    $('app').classList.toggle('is-playing', playing);
+    if (changed) window.scrollTo(0, 0);
+  }
   home(data, selected, canContinue) {
-    const switching = $('app').classList.contains('is-playing');
-    $('app').classList.remove('is-playing');
+    this.setPageMode('menu');
     $('home').hidden = false; $('play').hidden = true;
-    if (switching) window.scrollTo(0, 0);
     document.querySelectorAll('[data-level]').forEach(el => el.setAttribute('aria-pressed', String(el.dataset.level === selected)));
     const best = data.bestTimes[selected] ?? null;
     $('home-best').textContent = selected === 'custom' ? t("Your field. Your challenge.") : best === null ? t("Make your first mark") : `${t(LEVELS[selected].name)} · ${formatTime(best)}`;
@@ -62,10 +70,8 @@ export class UI {
     this.render(game, true);
   }
   showGame(game, best) {
-    const switching = !$('app').classList.contains('is-playing');
-    $('app').classList.add('is-playing');
+    this.setPageMode('game');
     $('home').hidden = true; $('play').hidden = false;
-    if (switching) window.scrollTo(0, 0);
     const b = game.board;
     $('level-name').textContent = t(b.name); $('level-meta').textContent = `${b.cols} × ${b.rows} · ${minesText(b.mineCount)}`;
     $('game-best').textContent = best === null ? '—' : formatTime(best);

@@ -127,3 +127,22 @@ Verified:
 - Deterministic release validation passed: 16 runtime files, 36,906-byte ZIP. The new i18n module is packaged automatically; archive/test outputs remain ignored by Git.
 
 Remaining physical-device gate: actual iPhone Safari top/bottom browser chrome, real notch/home-indicator insets, keyboard/gesture interaction and the real YouTube Playables host. Emulated WebKit and viewport resizing do not certify those physical behaviors. No known failing automated checks remain.
+
+
+## Strict Menu/Game scroll modes and gesture audio recovery (2026-09-28)
+
+This supersedes the earlier allowance for document scrolling outside the board on short game screens. The cause was explicit: no Game-only document lock, plus a 360px minimum game height. `UI.setPageMode` now centrally applies menu-mode/game-mode to html/body and the existing is-playing app class. Menu retains native document scrolling. Game uses fixed body positioning, hidden overflow, overscroll-behavior:none and dynamic height with a percentage fallback; the old minimum is removed. Board sizing still uses ResizeObserver. Returning Home removes the lock and resets scroll. Modal closure never clears game-mode, so loss/win/settings backgrounds stay locked. Input/camera/game engine and localization logic are unchanged; no global touchmove preventDefault was added.
+
+Audio audit found no external audio files or paths: tones are synthesized. The previous implementation first created/resumed its context inside play (including a long-press timeout), ignored completion of resume, immediately scheduled oscillators while potentially suspended, and suspended the context during every mute/pause. No explicit lifecycle/unlock state existed. These are verified code defects; a physical iPhone's exact failure was not remotely observed.
+
+The replacement creates one context synchronously in trusted passive gesture listeners, awaits successful resume before sound scheduling, handles suspended/interrupted states, retries on later gestures and never requires a separate enable button. Effects cannot autoplay or replay after a long-delayed resume. Mute/pause stops sources rather than racing suspend/resume. State is checked on visibilitychange, pageshow and game resume; only the next user gesture resumes audio. Existing YouTube mute and SFX settings remain authoritative; local fallback stays enabled. There are no separate Music or master-volume settings.
+
+Verification:
+- 41 unit/contract tests passed, including delayed/rejected/hung resume, running-only playback, mute during resume, single context and stale-effect suppression.
+- Full existing Chromium gameplay, SDK/audio mute, camera, loss and Custom suite passed.
+- Chromium/WebKit real AudioContexts tested in desktop and mobile modes: no pre-gesture context, Start → running without sound, reveal/flag/loss oscillators scheduled only while running, actual context.suspend + pageshow followed by gesture recovery, SFX mute/unmute, one context and refresh unlock. Test-only traces showed WebKit initial suspended → resume → running. No production debug logging remains.
+- Localization/scroll tests cover 390×844, 393×852, 844×390, 852×393, 360×640, 320×568, 390×600 and short Game 390×280. Game stays at scrollY=0, controls fit, board drag moves only the board. Returning Home restores scrolling; Custom 40×30 and Settings preserve the lock.
+- Chromium uses native touch injection; mobile WebKit scroll tests verify geometry via scroll operations because this automation API cannot inject native swipe. Existing native Chromium pinch/long-press/pan tests remain passing.
+- Release ZIP regenerated with 16 runtime files. Local nested /minevia/ preview checks relative paths without modifying or deploying the public GitHub Pages site.
+
+Limits: physical iPhone/Android, audible speaker output, Safari hardware silent switch, real browser chrome/bounce and actual YouTube host still require device testing. Playwright WebKit is not a physical iPhone or installed desktop Safari. Tests simulate lifecycle interruptions and exercise real AudioContext.suspend; they do not claim an actual device background/foreground test.
